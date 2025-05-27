@@ -22,7 +22,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.dto.AuthResponse;
-import com.example.dto.UserRegiterRequest;
+import com.example.dto.UserRegisterRequest;
 import com.example.entity.User;
 import com.example.security.JwtUtil;
 import com.example.service.UserService;
@@ -52,8 +52,7 @@ public class UserController {
 	
 	@Operation(summary = "Đăng ký user mới")
 	@PostMapping("/register")
-	public ResponseEntity<?> register(@RequestBody UserRegiterRequest request) {
-		System.out.println("Class of request: " + request.getClass().getName());
+	public ResponseEntity<?> register(@RequestBody UserRegisterRequest request) {
 		System.out.println("name: " + request.getUsername());
 		
 		if (request.getUsername() == null) {
@@ -63,7 +62,7 @@ public class UserController {
         }
         if (userService.findByUsername(request.getUsername()) != null) {
             Map<String, String> error = new HashMap<>();
-	        error.put("message", "Username already exists: " + request.getUsername());
+	        error.put("message", "Username đãn được sử dụng: " + request.getUsername());
 	        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
         }
         User savedUser = userService.register(request.getUsername(), request.getPassword(), request.getEmail());
