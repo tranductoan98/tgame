@@ -9,6 +9,7 @@ import com.example.entity.PlayerPosition;
 import com.example.enums.Direction;
 import com.example.security.JwtUtil;
 import com.example.service.PlayerPositionService;
+import com.example.service.TmxMapService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -18,16 +19,20 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import org.springframework.stereotype.Component;
 import org.springframework.web.socket.CloseStatus;
 
+@Component
 public class GameWebSocketHandler extends TextWebSocketHandler {
 
     private final JwtUtil jwtunit;
     private final PlayerPositionService playerPositionService;
+    private final TmxMapService mapService;
 
-    public GameWebSocketHandler(JwtUtil jwtunit, PlayerPositionService playerPositionService) {
+    public GameWebSocketHandler(JwtUtil jwtunit, PlayerPositionService playerPositionService, TmxMapService mapService) {
         this.jwtunit = jwtunit;
         this.playerPositionService = playerPositionService;
+		this.mapService = mapService;
     }
 
     @Override
@@ -95,6 +100,11 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             int y = json.get("y").asInt();
             String dirStr = json.get("direction").asText();
             int mapId = (Integer) session.getAttributes().get("mapId");
+            
+            if (!mapService.isPositionValid(mapId, x, y)) {
+                System.out.println("Vị trí không hợp lệ: (" + x + ", " + y + ") trên map " + mapId);
+                return;
+            }
             
             Direction direction = Direction.valueOf(dirStr.toUpperCase());
             
