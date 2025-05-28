@@ -53,6 +53,9 @@ public class Player {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
     
+    @Column(name = "status")
+    private String status;
+    
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
@@ -69,29 +72,25 @@ public class Player {
             this.level++;
         }
     }
-
-	public Player(User user) {
-		super();
-		this.user = user;
-	}
-	
-	public Player(Integer playerid, User user, String name, Gender gender, int level, int experience, int gold,
-			int diamond, String avatarFace, LocalDateTime createdAt) {
-		super();
-		this.playerid = playerid;
-		this.user = user;
-		this.name = name;
-		this.gender = gender;
-		this.level = level;
-		this.experience = experience;
-		this.gold = gold;
-		this.diamond = diamond;
-		this.avatarFace = avatarFace;
-		this.createdAt = createdAt;
-	}
 	
 	public Player() {
 		super();
+	}
+
+	public User getUser() {
+		return user;
+	}
+
+	public void setUser(User user) {
+		this.user = user;
+	}
+
+	public String getStatus() {
+		return status;
+	}
+
+	public void setStatus(String status) {
+		this.status = status;
 	}
 
 	public Integer getPlayerid() {
@@ -100,14 +99,6 @@ public class Player {
 
 	public void setPlayerid(Integer playerid) {
 		this.playerid = playerid;
-	}
-
-	public User getUerid() {
-		return user;
-	}
-
-	public void setUerid(User userid) {
-		this.user = userid;
 	}
 
 	public String getName() {

@@ -35,7 +35,11 @@ public class SecurityConfig {
         	            "/swagger-ui/**",
         	            "/v3/api-docs/**"
         	        ).permitAll()
-        	        .requestMatchers("/api/player/**").authenticated()
+        	        .requestMatchers(
+        	        	"/api/player/**",
+        	        	"/api/map/**",
+        	        	"/api/player-position/**"
+        	        ).authenticated()
         	        .anyRequest().authenticated()
         	    )
         	.exceptionHandling(ex -> ex

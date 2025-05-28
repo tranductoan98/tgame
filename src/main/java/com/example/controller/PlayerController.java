@@ -1,5 +1,6 @@
 package com.example.controller;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -8,24 +9,22 @@ import java.util.Optional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.example.dto.PlayerCreateRequest;
+import com.example.dto.PlayerLoginRequest;
+import com.example.dto.PlayerLoginResponse;
+import com.example.dto.PlayerUpdateRequest;
 import com.example.entity.Player;
 import com.example.entity.User;
+import com.example.security.JwtUtil;
+import com.example.service.AvatarService;
 import com.example.service.PlayerService;
 import com.example.service.UserService;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
-import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/player")
@@ -35,14 +34,22 @@ public class PlayerController {
 	private final UserService userService;
 	
 	@Autowired
-    public PlayerController(PlayerService playerService, UserService userService) {
+    private JwtUtil jwtUtil;
+	
+    @Autowired
+    private AvatarService avatarService;
+	
+	@Autowired
+    public PlayerController(PlayerService playerService, UserService userService, JwtUtil jwtUtil, AvatarService avatarService) {
         this.playerService = playerService;
         this.userService = userService;
+        this.jwtUtil = jwtUtil;
+        this.avatarService = avatarService;
     }
 	
 	@Operation(summary = "tạo mới player", security = @SecurityRequirement(name = "bearerAuth"))
 	@PostMapping("/create")
-    public ResponseEntity<?> createPlayer(@Valid @RequestBody PlayerCreateRequest request) {
+    public ResponseEntity<?> createPlayer(@RequestBody PlayerCreateRequest request) {
 		if (request.getUserId() == null) {
         	Map<String, String> error = new HashMap<>();
             error.put("message", "Bạn phải nhập userId");
@@ -60,14 +67,29 @@ public class PlayerController {
 	
 	@Operation(summary = "cập nhật player", security = @SecurityRequirement(name = "bearerAuth"))
 	@PutMapping("/update")
-    public ResponseEntity<?> updatePlayer(@RequestBody Player player) {
-        Optional<Player> existing = playerService.findByPlayerId(player.getPlayerid());
+    public ResponseEntity<?> updatePlayer(@ModelAttribute PlayerUpdateRequest request, @RequestParam("file") MultipartFile file, @RequestHeader("Authorization") String authHeader) {
+        Optional<Player> existing = playerService.findByPlayerId(request.getPlayerid());
         if (existing.isEmpty()) {
             Map<String, String> error = new HashMap<>();
-	        error.put("message", "Không tìm thấy player với userId: " + player.getPlayerid());
+	        error.put("message", "Không tìm thấy player với userId: " + request.getPlayerid());
 	        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
         }
-        Player updated = playerService.updatePlayer(player);
+        
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+	        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+	    }
+		String token = authHeader.substring(7);
+	    Integer userId = jwtUtil.getUserIdFromToken(token);
+	    
+        try {
+        	Player player = existing.get();
+			String avatarPath = avatarService.saveAvatar(file, userId, request.getPlayerid(), player.getAvatarFace());
+			request.setAvatarFace(avatarPath);
+		} catch (IOException e) {
+			return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Lỗi khi upload avatar: " + e.getMessage());
+		}
+        
+        Player updated = playerService.updatePlayer(request);
         return ResponseEntity.ok(updated);
     }
 	
@@ -95,7 +117,7 @@ public class PlayerController {
     }
 	
 	@Operation(summary = "Lấy player theo playerId", security = @SecurityRequirement(name = "bearerAuth"))
-	@GetMapping("/get/{userId}")
+	@GetMapping("/get/{playerId}")
     public ResponseEntity<?> getPlayerByUserId(@PathVariable Integer playerId) {
 		Optional<Player> playerOpt = playerService.findByPlayerId(playerId);
         if (playerOpt.isEmpty()) {
@@ -107,12 +129,37 @@ public class PlayerController {
     }
 	
 	@Operation(summary = "Lấy tất cả nhân vật của user hiện tại", security = @SecurityRequirement(name = "bearerAuth"))
-    @GetMapping("/my-players")
+    @GetMapping("/my-players/{userId}")
     public ResponseEntity<?> getMyPlayers(@PathVariable Integer userId) {
 		List<Player> players = playerService.findAllByUserId(userId);
 		if (players.isEmpty()) {
 	    	return ResponseEntity.noContent().build();
 	    }
         return ResponseEntity.ok(players);
+    }
+	
+	@Operation(summary = "Player Đăng nhập", security = @SecurityRequirement(name = "bearerAuth"))
+	@PostMapping("/login")
+	public ResponseEntity<PlayerLoginResponse> login(@RequestBody PlayerLoginRequest request, @RequestHeader("Authorization") String authHeader) {
+		if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+	        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+	    }
+		String token = authHeader.substring(7);
+	    Integer userId = jwtUtil.getUserIdFromToken(token);
+        Integer playerId = request.getPlayerId();
+        PlayerLoginResponse response = playerService.login(userId, playerId);
+        return ResponseEntity.ok(response);
+    }
+	
+	@Operation(summary = "Player logout", security = @SecurityRequirement(name = "bearerAuth"))
+	@PostMapping("/logout")
+    public ResponseEntity<?> logout(@RequestHeader("Authorization") String authHeader) {
+		if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+	        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+	    }
+		String token = authHeader.substring(7);
+	    Integer userId = jwtUtil.getUserIdFromToken(token);
+        playerService.logout(userId);
+        return ResponseEntity.ok("Player logged out");
     }
 }

@@ -12,23 +12,17 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import com.example.dto.AuthResponse;
+import com.example.dto.UserChangePassRequest;
+import com.example.dto.UserLoginRequest;
 import com.example.dto.UserRegisterRequest;
 import com.example.entity.User;
 import com.example.security.JwtUtil;
 import com.example.service.UserService;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 
 @RestController
@@ -52,9 +46,7 @@ public class UserController {
 	
 	@Operation(summary = "Đăng ký user mới")
 	@PostMapping("/register")
-	public ResponseEntity<?> register(@RequestBody UserRegisterRequest request) {
-		System.out.println("name: " + request.getUsername());
-		
+	public ResponseEntity<?> register(@RequestBody UserRegisterRequest request) {	
 		if (request.getUsername() == null) {
         	Map<String, String> error = new HashMap<>();
             error.put("message", "Bạn phải nhập User name và password");
@@ -71,13 +63,14 @@ public class UserController {
 	
 	@Operation(summary = "Đăng nhập")
 	@PostMapping("/login")
-    public ResponseEntity<?> login(String username, String password) {
+    public ResponseEntity<?> login(@RequestBody UserLoginRequest request) {
 		try {
             Authentication auth = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(username, password));
+                    new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword()));
 
             UserDetails userDetails = (UserDetails) auth.getPrincipal();
-            String token = jwtUtil.generateToken(userDetails);
+            User currentUserOpt = userService.findByUsername(request.getUsername());
+            String token = jwtUtil.generateToken(userDetails, currentUserOpt.getId());
             return ResponseEntity.ok(new AuthResponse(token));
         } catch (AuthenticationException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Sai username hoặc password");
@@ -99,10 +92,8 @@ public class UserController {
 	
 	@Operation(summary = "Cập nhật mật khẩu", security = @SecurityRequirement(name = "bearerAuth"))
 	@PutMapping("/update-password")
-	public ResponseEntity<?> updatePassword(@RequestParam Integer userId,
-	                                        @RequestParam String oldPassword,
-	                                        @RequestParam String newPassword) {
-	    boolean updated = userService.updatePassword(userId, oldPassword, newPassword);
+	public ResponseEntity<?> updatePassword(@RequestBody UserChangePassRequest request) {
+	    boolean updated = userService.updatePassword(request.getUserId(), request.getOldPassword(), request.getNewPassword());
 	    if (updated) {
 	        return ResponseEntity.ok().body("Đổi mật khẩu thành công");
 	    } else {
@@ -120,19 +111,18 @@ public class UserController {
 	    }
 		
 		String username = authentication.getName();
-	    User currentUserOpt = userService.findByUsername(username);
-	    if (currentUserOpt.getUsername() == null) {
+	    User currentUser = userService.findByUsername(username);
+
+	    if (currentUser == null) {
 	        return ResponseEntity.status(HttpStatus.FORBIDDEN).body("User không hợp lệ");
 	    }
 	    
         List<User> users = userService.getAllUsers();
-        
         if (users == null || users.isEmpty()) {
             Map<String, String> error = new HashMap<>();
             error.put("message", "Danh sách user rỗng");
             return ResponseEntity.badRequest().body(error); 
         }
-        
         return ResponseEntity.ok(users);
     }
 	
