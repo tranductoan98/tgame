@@ -24,14 +24,14 @@ public class ChatLog {
     private Integer chatid;
 
     @ManyToOne
-    @JoinColumn(name = "playerid")
+    @JoinColumn(name = "senderid")
     private Player sender;
 
     @Enumerated(EnumType.STRING)
     private ChatChannel channel;
 
     @ManyToOne
-    @JoinColumn(name = "playerid", nullable = true)
+    @JoinColumn(name = "receiverid", nullable = true)
     private Player receiver;
 
     @ManyToOne

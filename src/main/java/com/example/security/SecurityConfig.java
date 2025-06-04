@@ -38,7 +38,8 @@ public class SecurityConfig {
         	        .requestMatchers(
         	        	"/api/player/**",
         	        	"/api/map/**",
-        	        	"/api/player-position/**"
+        	        	"/api/player-position/**",
+        	        	"/api/chat/**"
         	        ).authenticated()
         	        .anyRequest().authenticated()
         	    )

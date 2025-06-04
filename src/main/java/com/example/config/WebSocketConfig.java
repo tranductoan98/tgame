@@ -4,6 +4,7 @@ import org.springframework.web.socket.config.annotation.EnableWebSocket;
 import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
 
+import com.example.handler.ChatWebSocketHandler;
 import com.example.handler.GameWebSocketHandler;
 
 @Configuration
@@ -11,9 +12,11 @@ import com.example.handler.GameWebSocketHandler;
 public class WebSocketConfig implements WebSocketConfigurer {
 
     private final GameWebSocketHandler gameWebSocketHandler;
+    private final ChatWebSocketHandler chatWebSocketHandler;
 
-    public WebSocketConfig(GameWebSocketHandler gameWebSocketHandler) {
+    public WebSocketConfig(GameWebSocketHandler gameWebSocketHandler, ChatWebSocketHandler chatWebSocketHandler) {
         this.gameWebSocketHandler = gameWebSocketHandler;
+		this.chatWebSocketHandler = chatWebSocketHandler;
     }
 
     @Override
@@ -21,6 +24,9 @@ public class WebSocketConfig implements WebSocketConfigurer {
         registry
             .addHandler(gameWebSocketHandler, "/ws-game")
             .setAllowedOriginPatterns("*");
+        registry
+        .addHandler(chatWebSocketHandler, "/ws-chat")
+        .setAllowedOriginPatterns("*");
     }
 }
 

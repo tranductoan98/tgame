@@ -145,9 +145,19 @@ public class PlayerController {
 	        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 	    }
 		String token = authHeader.substring(7);
-	    Integer userId = jwtUtil.getUserIdFromToken(token);
-        Integer playerId = request.getPlayerId();
-        PlayerLoginResponse response = playerService.login(userId, playerId);
+		Integer userId;
+        try {
+            userId = jwtUtil.getUserIdFromToken(token);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        
+        PlayerLoginResponse response = playerService.login(userId, request.getPlayerId());
+        
+        if (response == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
+        
         return ResponseEntity.ok(response);
     }
 	

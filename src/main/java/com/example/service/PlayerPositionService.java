@@ -11,4 +11,5 @@ public interface PlayerPositionService {
     PlayerPosition saveOrUpdatePosition(PlayerPositionRequest userPosition);
     void deletePositionByPlayerId(Integer playerId);
     List<PlayerPosition> getAllPositionsByMapId(Integer mapId);
+    boolean isPlayerInMap(int playerId, int mapId);
 }

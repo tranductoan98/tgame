@@ -20,8 +20,6 @@ public class PlayerPositionServiceImpl implements PlayerPositionService{
 	private final PlayerRepository playerRepository;
 	private final MapRepository mapRepository;
 	
-
-
 	public PlayerPositionServiceImpl(PlayerPositionRepository userPositionRepository, PlayerRepository playerRepository,
 			MapRepository mapRepository) {
 		this.userPositionRepository = userPositionRepository;
@@ -75,6 +73,11 @@ public class PlayerPositionServiceImpl implements PlayerPositionService{
 	@Override
 	public List<PlayerPosition> getAllPositionsByMapId(Integer mapid) {
 		return userPositionRepository.findAllByMap_MapidAndPlayer_Status(mapid, "online");
+	}
+
+	@Override
+	public boolean isPlayerInMap(int playerId, int mapId) {
+		return userPositionRepository.findById(playerId).map(player -> player.getMap() != null && player.getMap().getMapid() == mapId).orElse(false);
 	}
 
 }
