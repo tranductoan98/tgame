@@ -6,11 +6,13 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 @Configuration
 public class SecurityConfig {
@@ -26,10 +28,19 @@ public class SecurityConfig {
     }
 
     @Bean
+    public WebSecurityCustomizer webSecurityCustomizer() {
+        return (web) -> web.ignoring().requestMatchers(
+            new AntPathRequestMatcher("/uploads/**")
+        );
+    }
+    
+    @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http.csrf(csrf -> csrf.disable())
+        http.cors().and()
+        .csrf(csrf -> csrf.disable())
         .authorizeHttpRequests(auth -> auth
         	    .requestMatchers(
+        	    		"/uploads/**",
        	                "/api/user/login",
         	            "/api/user/register",
         	            "/swagger-ui/**",
@@ -39,7 +50,10 @@ public class SecurityConfig {
         	        	"/api/player/**",
         	        	"/api/map/**",
         	        	"/api/player-position/**",
-        	        	"/api/chat/**"
+        	        	"/api/chat/**",
+        	        	"/api/items/**",
+        	        	"/api/inventory/**",
+        	        	"/api/image-data/**"
         	        ).authenticated()
         	        .anyRequest().authenticated()
         	    )
@@ -59,4 +73,5 @@ public class SecurityConfig {
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
     }
+
 }

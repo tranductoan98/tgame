@@ -14,8 +14,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import com.example.dto.AuthResponse;
+import com.example.dto.LoginResponse;
 import com.example.dto.UserChangePassRequest;
+import com.example.dto.UserDTO;
 import com.example.dto.UserLoginRequest;
 import com.example.dto.UserRegisterRequest;
 import com.example.entity.User;
@@ -71,7 +72,10 @@ public class UserController {
             UserDetails userDetails = (UserDetails) auth.getPrincipal();
             User currentUserOpt = userService.findByUsername(request.getUsername());
             String token = jwtUtil.generateToken(userDetails, currentUserOpt.getId());
-            return ResponseEntity.ok(new AuthResponse(token));
+            UserDTO userDto = new UserDTO(currentUserOpt.getId(), currentUserOpt.getUsername(), currentUserOpt.getEmail());
+            LoginResponse response = new LoginResponse(token, userDto);
+            
+            return ResponseEntity.ok(response);
         } catch (AuthenticationException e) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Sai username hoặc password");
         }

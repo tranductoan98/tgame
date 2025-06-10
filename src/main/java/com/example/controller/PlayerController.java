@@ -55,7 +55,17 @@ public class PlayerController {
             error.put("message", "Bạn phải nhập userId");
 	        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
         }
-		Optional<User> userOpt = userService.findByUserId(request.getUserId());
+		Optional<User> userOpt = Optional.of(new User());
+		if (request.getCharacterName() != null &&
+			request.getCharacterName().length() >= 1 &&
+			request.getCharacterName().length() <= 10 &&
+			request.getCharacterName().matches("^[a-zA-Z0-9]+$")) {
+			userOpt = userService.findByUserId(request.getUserId());
+		} else {
+			Map<String, String> error = new HashMap<>();
+            error.put("message", "name tối thiểu 1 và tối đa 10 ký tự, không nhập ký tự đặc biệt");
+	        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+		}
         if (userOpt.isEmpty()) {
         	Map<String, String> error = new HashMap<>();
             error.put("message", "User không tồn tại");
