@@ -95,7 +95,7 @@ public class ChatLogDTO {
 	    }
 
 	    if (chatLog.getMap() != null) {
-	        dto.setMapId(chatLog.getMap().getMapid());
+	        dto.setMapId(chatLog.getMap().getId());
 	    }
 
 	    dto.setMessage(chatLog.getMessage());

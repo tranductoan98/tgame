@@ -11,6 +11,6 @@ import com.example.entity.PlayerPosition;
 public interface PlayerPositionRepository extends JpaRepository<PlayerPosition, Integer> {
     PlayerPosition findByPlayerId(Integer playerId);
     boolean existsByPlayerId(Integer playerId);
-    List<PlayerPosition> findAllByMap_MapidAndPlayer_Status(Integer mapid, String status);
+    List<PlayerPosition> findAllByMap_IdAndPlayer_Status(Integer mapid, String status);
 
 }

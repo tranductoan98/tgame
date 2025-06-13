@@ -13,9 +13,9 @@ import com.example.enums.ChatChannel;
 
 public interface ChatLogRepository extends JpaRepository<ChatLog, Integer> {
 
-    List<ChatLog> findByMap_Mapid(int mapId);
+    List<ChatLog> findByMap_Id(int mapId);
 
-    Page<ChatLog> findByMap_MapidOrderBySentatDesc(int mapId, Pageable pageable);
+    Page<ChatLog> findByMap_IdOrderBySentatDesc(int mapId, Pageable pageable);
 
     Page<ChatLog> findBySender_PlayeridAndReceiver_PlayeridOrderBySentatDesc(int senderId, int receiverId, Pageable pageable);
 

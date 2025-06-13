@@ -11,6 +11,6 @@ public interface MapService {
 	List<Maps> getAllMaps();
 	Optional<Maps> getMapById(Integer mapId);
 	Maps updateMap(Maps updatedMap);
-	boolean deleteByMapId(Integer mapId);
+	boolean deleteById(Integer mapId);
 	List<Maps> getMapsByType(MapType type);
 }

@@ -23,10 +23,11 @@ public class WebSocketConfig implements WebSocketConfigurer {
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
         registry
             .addHandler(gameWebSocketHandler, "/ws-game")
-            .setAllowedOriginPatterns("*");
+            .setAllowedOrigins("*");
+        //chat
         registry
-        .addHandler(chatWebSocketHandler, "/ws-chat")
-        .setAllowedOriginPatterns("*");
+        	.addHandler(chatWebSocketHandler, "/ws-chat")
+        	.setAllowedOrigins("*");
     }
 }
 

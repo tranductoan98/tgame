@@ -6,13 +6,11 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
-import org.springframework.security.config.annotation.web.configuration.WebSecurityCustomizer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 @Configuration
 public class SecurityConfig {
@@ -27,12 +25,12 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    @Bean
-    public WebSecurityCustomizer webSecurityCustomizer() {
-        return (web) -> web.ignoring().requestMatchers(
-            new AntPathRequestMatcher("/uploads/**")
-        );
-    }
+//    @Bean
+//    public WebSecurityCustomizer webSecurityCustomizer() {
+//        return (web) -> web.ignoring().requestMatchers(
+//            new AntPathRequestMatcher("/uploads/**")
+//        );
+//    }
     
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -40,7 +38,9 @@ public class SecurityConfig {
         .csrf(csrf -> csrf.disable())
         .authorizeHttpRequests(auth -> auth
         	    .requestMatchers(
-        	    		"/uploads/**",
+//        	    		"/uploads//**",
+        	    		"/ws-game/**",
+        	    		"/ws-chat/**",
        	                "/api/user/login",
         	            "/api/user/register",
         	            "/swagger-ui/**",
@@ -53,7 +53,8 @@ public class SecurityConfig {
         	        	"/api/chat/**",
         	        	"/api/items/**",
         	        	"/api/inventory/**",
-        	        	"/api/image-data/**"
+        	        	"/api/image-data/**",
+        	        	"/api/map-image-data/**"
         	        ).authenticated()
         	        .anyRequest().authenticated()
         	    )

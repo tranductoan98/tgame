@@ -73,7 +73,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
             case MAP -> {
                 chat.setMap(playerPosition.getMap());
                 chatLogService.sendMessage(chat);
-                broadcastToMap(playerPosition.getMap().getMapid(), chat);
+                broadcastToMap(playerPosition.getMap().getId(), chat);
             }
             case PRIVATE -> {
                 Player receiver = playerService.findByPlayerId(incoming.getReceiverId()).orElseThrow(() -> new RuntimeException("Không tìm thấy người chơi với ID: " + incoming.getReceiverId()));
@@ -108,7 +108,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 	private void broadcastToMap(int mapId, ChatLog chat) throws Exception {
         for (Map.Entry<Integer, WebSocketSession> entry : sessions.entrySet()) {
             PlayerPosition playerPosition = playerPositionService.getPositionByPlayerId(entry.getKey()).orElseThrow(() -> new RuntimeException("Không tìm thấy người chơi với ID: " + entry.getKey()));
-            if (playerPosition.getMap() != null && playerPosition.getMap().getMapid() == mapId) {
+            if (playerPosition.getMap() != null && playerPosition.getMap().getId() == mapId) {
                 send(entry.getValue(), chat);
             }
         }

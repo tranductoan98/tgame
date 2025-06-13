@@ -1,6 +1,7 @@
 package com.example.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -11,4 +12,5 @@ import com.example.enums.MapType;
 @Repository
 public interface MapRepository extends JpaRepository<Maps, Integer> {
 	List<Maps> findByType(MapType type);
+	Optional<Maps> findByIsDefaultTrue();
 }

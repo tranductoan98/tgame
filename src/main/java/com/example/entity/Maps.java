@@ -10,49 +10,87 @@ public class Maps {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer mapid;
+    private Integer id;
 
-    @Column(length = 100, nullable = false)
+    @Column(nullable = false, length = 64)
     private String name;
 
-    @Column(name = "mapfile", length = 255, nullable = false)
-    private String mapFile;
+    // Số lượng tiles theo chiều ngang và dọc
+    @Column(nullable = false)
+    private Integer width;
 
-    @Enumerated(EnumType.STRING)
-    @Column(length = 10, nullable = false)
+    @Column(nullable = false)
+    private Integer height;
+
+    // Kích thước 1 tile (tính theo pixel)
+    @Column(name = "tile_width", nullable = false)
+    private Integer tileWidth = 32;
+
+    @Column(name = "tile_height", nullable = false)
+    private Integer tileHeight = 32;
+
+    // Kiểu map (town, house, dungeon...)
+    @Column(nullable = false, length = 32)
     private MapType type;
 
-    @Column(name = "spawnx", nullable = false)
-    private int spawnX;
+    @Column(length = 255)
+    private String description;
 
-    @Column(name = "spawny", nullable = false)
-    private int spawnY;
+    // Có phải là bản đồ mặc định khi login không
+    @Column(name = "is_default", nullable = false)
+    private Boolean isDefault = false;
 
-	public Integer getMapid() {
-		return mapid;
-	}
+    // --- GETTER / SETTER ---
 
-	public void setMapid(Integer mapid) {
-		this.mapid = mapid;
-	}
+    public Integer getId() {
+        return id;
+    }
 
-	public String getName() {
-		return name;
-	}
+    public void setId(Integer id) {
+        this.id = id;
+    }
 
-	public void setName(String name) {
-		this.name = name;
-	}
+    public String getName() {
+        return name;
+    }
 
-	public String getMapFile() {
-		return mapFile;
-	}
+    public void setName(String name) {
+        this.name = name;
+    }
 
-	public void setMapFile(String mapFile) {
-		this.mapFile = mapFile;
-	}
+    public Integer getWidth() {
+        return width;
+    }
 
-	public MapType getType() {
+    public void setWidth(Integer width) {
+        this.width = width;
+    }
+
+    public Integer getHeight() {
+        return height;
+    }
+
+    public void setHeight(Integer height) {
+        this.height = height;
+    }
+
+    public Integer getTileWidth() {
+        return tileWidth;
+    }
+
+    public void setTileWidth(Integer tileWidth) {
+        this.tileWidth = tileWidth;
+    }
+
+    public Integer getTileHeight() {
+        return tileHeight;
+    }
+
+    public void setTileHeight(Integer tileHeight) {
+        this.tileHeight = tileHeight;
+    }
+
+    public MapType getType() {
 		return type;
 	}
 
@@ -60,21 +98,20 @@ public class Maps {
 		this.type = type;
 	}
 
-	public int getSpawnX() {
-		return spawnX;
-	}
+    public String getDescription() {
+        return description;
+    }
 
-	public void setSpawnX(int spawnX) {
-		this.spawnX = spawnX;
-	}
+    public void setDescription(String description) {
+        this.description = description;
+    }
 
-	public int getSpawnY() {
-		return spawnY;
-	}
+    public Boolean getIsDefault() {
+        return isDefault;
+    }
 
-	public void setSpawnY(int spawnY) {
-		this.spawnY = spawnY;
-	}
-    
-    
+    public void setIsDefault(Boolean isDefault) {
+        this.isDefault = isDefault;
+    }
 }
+
