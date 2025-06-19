@@ -4,14 +4,15 @@ import org.springframework.web.socket.TextMessage;
 import org.springframework.web.socket.WebSocketSession;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
+import com.example.dto.PlayerPositionDTO;
 import com.example.dto.PlayerPositionRequest;
 import com.example.entity.Player;
-import com.example.entity.PlayerPosition;
 import com.example.enums.Direction;
+import com.example.position.PlayerPositionCache;
 import com.example.security.JwtUtil;
 import com.example.service.PlayerPositionService;
 import com.example.service.PlayerService;
-import com.example.service.TmxMapService;
+import com.example.service.MapCollisionService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -33,31 +34,39 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
 	private final PlayerService playerService;
     private final PlayerPositionService playerPositionService;
+    private final MapCollisionService mapService;
     private final WebSocketSessionHandler sessionManager;
-    private final TmxMapService mapService;
     private final JwtUtil jwtUtil;
+    private final Set<Integer> activePlayerIds = ConcurrentHashMap.newKeySet();
+    private final PlayerPositionCache positionCache;
     
-    private ConcurrentHashMap<String, Long> sessionLastSeen = new ConcurrentHashMap<>();
+    private ConcurrentHashMap<Integer, Long> sessionLastSeen = new ConcurrentHashMap<>();
 
-    public GameWebSocketHandler(PlayerPositionService playerPositionService, TmxMapService mapService, PlayerService playerService, JwtUtil jwtUtil, WebSocketSessionHandler sessionManager) {
+    public GameWebSocketHandler(PlayerPositionService playerPositionService, MapCollisionService mapService, PlayerService playerService, JwtUtil jwtUtil, WebSocketSessionHandler sessionManager, MapCollisionService mapCollisionService, PlayerPositionCache positionCache) {
         this.playerService = playerService;
 		this.playerPositionService = playerPositionService;
 		this.sessionManager = sessionManager;
 		this.mapService = mapService;
 		this.jwtUtil = jwtUtil;
+		this.positionCache = positionCache;
+    }
+    
+    public Map<Integer, Long> getSessionLastSeen() {
+        return sessionLastSeen;
+    }
+
+    public Set<Integer> getActivePlayerIds() {
+        return activePlayerIds;
     }
 
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
-        System.out.println("✅ WebSocket connected: " + session.getId());
-
         String query = session.getUri().getQuery();
         String token = getTokenFromQuery(query);
         String playerIdParam = getQueryParam(query, "playerId");
 
         if (token == null || token.isBlank()) {
             session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Missing token"));
-            System.out.println("❌ Connection rejected: Missing token.");
             return;
         }
 
@@ -75,30 +84,25 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
                 return;
             }
             
-            Optional<PlayerPosition> positionOptional = playerPositionService.getPositionByPlayerId(playerId);
+            Optional<PlayerPositionDTO> positionOptional = playerPositionService.getPositionByPlayerId(playerId);
             if (positionOptional.isEmpty()) {
                 session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Player position not found"));
-                System.out.println("❌ Player " + playerId + " has no position.");
                 return;
             }
 
-            PlayerPosition playerPosition = positionOptional.get();
-            int mapId = playerPosition.getMap().getId();
+            PlayerPositionDTO playerPosition = positionOptional.get();
+            int mapId = playerPosition.getMapId();
 
             session.getAttributes().put("playerId", playerId);
             session.getAttributes().put("mapId", mapId);
 
             PlayerSessionManager.addSession(session, playerId, mapId);
-        	sessionManager.addSession(session.getId(), session);
-
-            System.out.println("✅ Player " + playerId + " connected on map " + mapId);
+        	sessionManager.addSession(playerId, session);
 
         } catch (JwtException e) {
             session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Invalid token"));
-            System.out.println("❌ Invalid token: " + e.getMessage());
         } catch (Exception e) {
             session.close(CloseStatus.SERVER_ERROR.withReason("Internal error"));
-            System.out.println("❌ WebSocket error: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -130,41 +134,68 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         Integer playerId = (Integer) session.getAttributes().get("playerId");
         Integer mapId = (Integer) session.getAttributes().get("mapId");
 
-        if (playerId != null && mapId != null) {            PlayerSessionManager.removeSession(session, playerId, mapId);
-            System.out.println("Player " + playerId + " disconnected from map " + mapId);
-        }
+        if (playerId != null && mapId != null) PlayerSessionManager.removeSession(session, playerId, mapId);
     }
     
     @Override
     protected void handleTextMessage(WebSocketSession session, TextMessage message) throws Exception {
-    	sessionLastSeen.put(session.getId(), System.currentTimeMillis());
-        String payload = message.getPayload();
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode json = mapper.readTree(payload);
+        Integer playerId = (Integer) session.getAttributes().get("playerId");
+        Integer mapId = (Integer) session.getAttributes().get("mapId");
 
-        String type = json.get("type").asText();
-        
-        System.out.println("type: " + type);
-        
-        if ("ping".equals(type)) {
-            sessionLastSeen.put(session.getId(), System.currentTimeMillis());
+        if (playerId == null || mapId == null) {
+            System.out.println("Thiếu playerId hoặc mapId trong session");
             return;
         }
-        
+
+        String payload = message.getPayload();
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode json;
+
+        try {
+            json = mapper.readTree(payload);
+        } catch (Exception e) {
+            return;
+        }
+
+        String type = json.get("type").asText();
+        System.out.println("type " + type);
+
+        if ("ping".equals(type)) {
+            sessionLastSeen.put(playerId, System.currentTimeMillis());
+            return;
+        }
+
         if ("move".equals(type)) {
-            int playerId = (Integer) session.getAttributes().get("playerId");
-            int x = json.get("x").asInt();
-            int y = json.get("y").asInt();
-            String dirStr = json.get("direction").asText();
-            int mapId = (Integer) session.getAttributes().get("mapId");
+            long now = System.currentTimeMillis();
+            float x = (float) json.get("x").asDouble();
+            float y = (float) json.get("y").asDouble();
             
+            String dirStr = json.get("direction").asText();
+
+            if (!mapService.isMapLoaded(mapId)) {
+                try {
+                    mapService.loadFromDatabase(mapId);
+                } catch (Exception e) {
+                    return;
+                }
+            }
+
             if (!mapService.isPositionValid(mapId, x, y)) {
-                System.out.println("Vị trí không hợp lệ: (" + x + ", " + y + ") trên map " + mapId);
+                System.out.println("Vị trí di chuyển không hợp lệ của người chơi: " + playerId + ": (" + x + ", " + y + ")");
                 return;
             }
-            
-            Direction direction = Direction.valueOf(dirStr.toUpperCase());
-            
+
+            Direction direction;
+            try {
+                direction = Direction.valueOf(dirStr.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                System.out.println("Hướng không hợp lệ: " + dirStr);
+                return;
+            }
+
+            sessionLastSeen.put(playerId, now);
+            activePlayerIds.add(playerId);
+
             PlayerPositionRequest playerPosition = new PlayerPositionRequest();
             playerPosition.setPlayerId(playerId);
             playerPosition.setMapId(mapId);
@@ -172,8 +203,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             playerPosition.setY(y);
             playerPosition.setDirection(direction);
             playerPositionService.saveOrUpdatePosition(playerPosition);
-
-            Set<WebSocketSession> sessions = PlayerSessionManager.getSessionsInMap(mapId);
 
             String updateMessage = mapper.writeValueAsString(Map.of(
                 "type", "update_move",
@@ -184,6 +213,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             ));
 
             TextMessage updateText = new TextMessage(updateMessage);
+            Set<WebSocketSession> sessions = PlayerSessionManager.getSessionsInMap(mapId);
 
             for (WebSocketSession s : sessions) {
                 if (s.isOpen()) {
@@ -193,20 +223,63 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         }
     }
     
+    public void sendPlayerOnline(int playerId) {
+        Optional<Player> playerOpt = playerService.findByPlayerId(playerId);
+        Optional<PlayerPositionDTO> positionOpt = playerPositionService.getPositionByPlayerId(playerId);
+
+        if (playerOpt.isEmpty() || positionOpt.isEmpty()) return;
+
+        Player player = playerOpt.get();
+        PlayerPositionDTO pos = positionOpt.get();
+        int mapId = pos.getMapId();
+
+        Map<String, Object> message = Map.of(
+            "type", "player_online",
+            "playerId", player.getPlayerid(),
+            "playerName", player.getName(),
+            "x", pos.getX(),
+            "y", pos.getY(),
+            "direction", pos.getDirection().name()
+        );
+
+        try {
+            String json = new ObjectMapper().writeValueAsString(message);
+            TextMessage textMessage = new TextMessage(json);
+
+            Set<WebSocketSession> sessions = PlayerSessionManager.getSessionsInMap(mapId);
+            for (WebSocketSession session : sessions) {
+                if (session.isOpen()) {
+                    session.sendMessage(textMessage);
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    
     @Scheduled(fixedRate = 30000)
 	public void checkInactiveSessions() {
 	    long now = System.currentTimeMillis();
-	    for (Map.Entry<String, Long> entry : sessionLastSeen.entrySet()) {
-	        if (now - entry.getValue() > 60000) { 
+	    for (Map.Entry<Integer, Long> entry : sessionLastSeen.entrySet()) {
+	    	int playerId = entry.getKey();
+	        long lastSeen = entry.getValue();
+	        
+	        if (now - lastSeen > 60000) { 
 	            WebSocketSession session = sessionManager.getSession(entry.getKey());
 	            if (session != null && session.isOpen()) {
 	                try {
 	                    session.close();
-	                    System.out.println("Session timeout closed: " + session.getId());
 	                } catch (IOException e) {
 	                    e.printStackTrace();
 	                }
 	            }
+	            
+	            positionCache.deletePosition(playerId);
+	            sessionLastSeen.remove(playerId);
+	            activePlayerIds.remove(playerId);
+	            playerService.logout(playerId);
+	            System.out.println("Đã xóa người chơi không hoạt động: " + playerId);
 	        }
 	    }
 	}

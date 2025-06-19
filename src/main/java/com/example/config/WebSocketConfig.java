@@ -24,7 +24,7 @@ public class WebSocketConfig implements WebSocketConfigurer {
         registry
             .addHandler(gameWebSocketHandler, "/ws-game")
             .setAllowedOrigins("*");
-        //chat
+
         registry
         	.addHandler(chatWebSocketHandler, "/ws-chat")
         	.setAllowedOrigins("*");

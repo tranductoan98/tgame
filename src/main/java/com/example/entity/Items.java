@@ -47,6 +47,10 @@ public class Items {
     @Enumerated(EnumType.STRING)
     @Column(name = "equip_type")
     private EquipType equip_type;
+    
+    private float height;
+    
+    private float width;
 
 	public Items() {
 	}
@@ -153,6 +157,22 @@ public class Items {
 
 	public void setEquip_type(EquipType equip_type) {
 		this.equip_type = equip_type;
+	}
+
+	public float getHeight() {
+		return height;
+	}
+
+	public void setHeight(float height) {
+		this.height = height;
+	}
+
+	public float getWidth() {
+		return width;
+	}
+
+	public void setWidth(float width) {
+		this.width = width;
 	}
 
 }

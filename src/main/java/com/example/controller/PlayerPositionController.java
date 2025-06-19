@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import com.example.dto.PlayerPositionDTO;
 import com.example.dto.PlayerPositionRequest;
 import com.example.entity.PlayerPosition;
 import com.example.service.PlayerPositionService;
@@ -30,7 +31,7 @@ public class PlayerPositionController {
 	@Operation(summary = "lấy vị trí người chơi", security = @SecurityRequirement(name = "bearerAuth"))
 	@GetMapping("/{playerId}")
     public ResponseEntity<?> getPositionByPlayerId(@PathVariable Integer playerId) {
-        Optional<PlayerPosition> positionOpt = positionService.getPositionByPlayerId(playerId);
+        Optional<PlayerPositionDTO> positionOpt = positionService.getPositionByPlayerId(playerId);
         
         if (positionOpt == null) {
 	        Map<String, String> error = new HashMap<>();
@@ -43,8 +44,8 @@ public class PlayerPositionController {
 	
 	@Operation(summary = "lấy vị trí tất cả người chơi trên một map", security = @SecurityRequirement(name = "bearerAuth"))
 	@GetMapping("/map/{mapid}")
-    public ResponseEntity<List<PlayerPosition>> getAllPositionsByMap(@PathVariable Integer mapid) {
-        List<PlayerPosition> positions = positionService.getAllPositionsByMapId(mapid);
+    public ResponseEntity<List<PlayerPositionDTO>> getAllPositionsByMap(@PathVariable Integer mapid) {
+        List<PlayerPositionDTO> positions = positionService.getAllPositionsByMapId(mapid);
         return ResponseEntity.ok(positions);
     }
 	

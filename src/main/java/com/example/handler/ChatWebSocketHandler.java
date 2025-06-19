@@ -11,10 +11,12 @@ import org.springframework.web.socket.*;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 
 import com.example.dto.ChatMessage;
+import com.example.dto.PlayerPositionDTO;
 import com.example.entity.ChatLog;
+import com.example.entity.Maps;
 import com.example.entity.Player;
-import com.example.entity.PlayerPosition;
 import com.example.service.ChatLogService;
+import com.example.service.MapService;
 import com.example.service.PlayerPositionService;
 import com.example.service.PlayerService;
 
@@ -24,15 +26,17 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 	private final ChatLogService chatLogService;
     private final PlayerService playerService;
     private final PlayerPositionService playerPositionService;
+    private final MapService mapService;
     
     private final ObjectMapper objectMapper = new ObjectMapper();
  
     private final Map<Integer, WebSocketSession> sessions = new ConcurrentHashMap<>();
 
-	public ChatWebSocketHandler(ChatLogService chatLogService, PlayerService playerService, PlayerPositionService playerPositionService) {
+	public ChatWebSocketHandler(ChatLogService chatLogService, PlayerService playerService, PlayerPositionService playerPositionService, MapService mapService) {
 		this.chatLogService = chatLogService;
 		this.playerService = playerService;
 		this.playerPositionService = playerPositionService;
+		this.mapService = mapService;
 	}
     
 	@Override
@@ -62,18 +66,20 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         if (senderId == null) return;
 
         Player sender = playerService.findByPlayerId(senderId).orElseThrow(() -> new RuntimeException("Không tìm thấy người chơi với ID: " + senderId));
-        PlayerPosition playerPosition = playerPositionService.getPositionByPlayerId(senderId).orElseThrow(() -> new RuntimeException("Không tìm thấy người chơi với ID: " + senderId));
+        PlayerPositionDTO playerPosition = playerPositionService.getPositionByPlayerId(senderId).orElseThrow(() -> new RuntimeException("Không tìm thấy người chơi với ID: " + senderId));
         ChatLog chat = new ChatLog();
         chat.setSender(sender);
         chat.setMessage(incoming.getMessage());
         chat.setChannel(incoming.getChannel());
         chat.setSentat(LocalDateTime.now());
+        
+        Maps maps = mapService.getMapById(playerPosition.getMapId()).orElseThrow(() -> new RuntimeException("Không tìm thấy Map với ID: " + playerPosition.getMapId()));
 
         switch (incoming.getChannel()) {
             case MAP -> {
-                chat.setMap(playerPosition.getMap());
+                chat.setMap(maps);
                 chatLogService.sendMessage(chat);
-                broadcastToMap(playerPosition.getMap().getId(), chat);
+                broadcastToMap(playerPosition.getMapId(), chat);
             }
             case PRIVATE -> {
                 Player receiver = playerService.findByPlayerId(incoming.getReceiverId()).orElseThrow(() -> new RuntimeException("Không tìm thấy người chơi với ID: " + incoming.getReceiverId()));
@@ -107,8 +113,8 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 	
 	private void broadcastToMap(int mapId, ChatLog chat) throws Exception {
         for (Map.Entry<Integer, WebSocketSession> entry : sessions.entrySet()) {
-            PlayerPosition playerPosition = playerPositionService.getPositionByPlayerId(entry.getKey()).orElseThrow(() -> new RuntimeException("Không tìm thấy người chơi với ID: " + entry.getKey()));
-            if (playerPosition.getMap() != null && playerPosition.getMap().getId() == mapId) {
+        	PlayerPositionDTO playerPosition = (PlayerPositionDTO) playerPositionService.getPositionByPlayerId(entry.getKey()).orElseThrow(() -> new RuntimeException("Không tìm thấy người chơi với ID: " + entry.getKey()));
+            if (playerPosition.getMapId() == mapId) {
                 send(entry.getValue(), chat);
             }
         }

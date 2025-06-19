@@ -25,20 +25,12 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-//    @Bean
-//    public WebSecurityCustomizer webSecurityCustomizer() {
-//        return (web) -> web.ignoring().requestMatchers(
-//            new AntPathRequestMatcher("/uploads/**")
-//        );
-//    }
-    
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.cors().and()
         .csrf(csrf -> csrf.disable())
         .authorizeHttpRequests(auth -> auth
         	    .requestMatchers(
-//        	    		"/uploads//**",
         	    		"/ws-game/**",
         	    		"/ws-chat/**",
        	                "/api/user/login",

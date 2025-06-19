@@ -8,21 +8,21 @@ import org.springframework.web.socket.WebSocketSession;
 @Component
 public class WebSocketSessionHandler {
 
-	private final ConcurrentHashMap<String, WebSocketSession> sessionMap = new ConcurrentHashMap<>();
+	private final ConcurrentHashMap<Integer, WebSocketSession> sessionMap = new ConcurrentHashMap<>();
 
-    public void addSession(String sessionId, WebSocketSession session) {
+    public void addSession(Integer sessionId, WebSocketSession session) {
         sessionMap.put(sessionId, session);
     }
 
-    public void removeSession(String sessionId) {
+    public void removeSession(Integer sessionId) {
         sessionMap.remove(sessionId);
     }
 
-    public WebSocketSession getSession(String sessionId) {
+    public WebSocketSession getSession(Integer sessionId) {
         return sessionMap.get(sessionId);
     }
 
-    public ConcurrentHashMap<String, WebSocketSession> getAllSessions() {
+    public ConcurrentHashMap<Integer, WebSocketSession> getAllSessions() {
         return sessionMap;
     }
     

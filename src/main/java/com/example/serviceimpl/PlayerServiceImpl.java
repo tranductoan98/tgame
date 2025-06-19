@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import com.example.dto.PlayerCreateRequest;
@@ -17,6 +18,8 @@ import com.example.entity.PlayerInventory;
 import com.example.entity.PlayerPosition;
 import com.example.entity.User;
 import com.example.enums.Direction;
+import com.example.handler.GameWebSocketHandler;
+import com.example.position.PlayerPositionCache;
 import com.example.repository.ItemsRepository;
 import com.example.repository.MapRepository;
 import com.example.repository.PlayerInventoryRepository;
@@ -32,13 +35,19 @@ public class PlayerServiceImpl implements PlayerService{
 	private final MapRepository mapRepository;
 	private final ItemsRepository itemsRepository;
 	private final PlayerInventoryRepository playerInventoryRepository;
+	private final GameWebSocketHandler gameWebSocketHandler;
+	 private final PlayerPositionCache positionCache;
 	
-	public PlayerServiceImpl(PlayerRepository playerRepository, PlayerPositionRepository playerPositionRepository, MapRepository mapRepository, ItemsRepository itemsRepository, PlayerInventoryRepository playerInventoryRepository) {
+	public PlayerServiceImpl(PlayerRepository playerRepository, PlayerPositionRepository playerPositionRepository
+			, MapRepository mapRepository, ItemsRepository itemsRepository
+			, PlayerInventoryRepository playerInventoryRepository, @Lazy GameWebSocketHandler gameWebSocketHandler, PlayerPositionCache positionCache) {
 		this.playerRepository = playerRepository;
 		this.playerPositionRepository = playerPositionRepository;
 		this.mapRepository = mapRepository;
 		this.itemsRepository = itemsRepository;
 		this.playerInventoryRepository = playerInventoryRepository;
+		this.gameWebSocketHandler = gameWebSocketHandler;
+		this.positionCache = positionCache;
 	}
 
 	@Override
@@ -53,16 +62,27 @@ public class PlayerServiceImpl implements PlayerService{
         
         List<PlayerInventory> defaultItems = new ArrayList<PlayerInventory>();
         
-        Items items = itemsRepository.findById(1).get();
-        defaultItems.add(new PlayerInventory(savedPlayer, items, true, false, LocalDateTime.now()));
-        Items items2 = itemsRepository.findById(2).get();
-        defaultItems.add(new PlayerInventory(savedPlayer, items2, true, false, LocalDateTime.now()));
-        Items items3 = itemsRepository.findById(3).get();
-        defaultItems.add(new PlayerInventory(savedPlayer, items3, true, false, LocalDateTime.now()));
-        Items items4 = itemsRepository.findById(4).get();
-        defaultItems.add(new PlayerInventory(savedPlayer, items4, true, false, LocalDateTime.now()));
-        Items items5 = itemsRepository.findById(5).get();
-        defaultItems.add(new PlayerInventory(savedPlayer, items5, true, false, LocalDateTime.now()));
+        if(playerrq.getGender().toString() == "male") {
+        	Items items = itemsRepository.findById(1).get();
+            defaultItems.add(new PlayerInventory(savedPlayer, items, true, false, LocalDateTime.now()));
+            Items items2 = itemsRepository.findById(2).get();
+            defaultItems.add(new PlayerInventory(savedPlayer, items2, true, false, LocalDateTime.now()));
+            Items items3 = itemsRepository.findById(3).get();
+            defaultItems.add(new PlayerInventory(savedPlayer, items3, true, false, LocalDateTime.now()));
+            Items items4 = itemsRepository.findById(4).get();
+            defaultItems.add(new PlayerInventory(savedPlayer, items4, true, false, LocalDateTime.now()));
+            Items items5 = itemsRepository.findById(5).get();
+            defaultItems.add(new PlayerInventory(savedPlayer, items5, true, false, LocalDateTime.now()));
+        }else {
+        	Items items = itemsRepository.findById(3940).get();
+            defaultItems.add(new PlayerInventory(savedPlayer, items, true, false, LocalDateTime.now()));
+            Items items2 = itemsRepository.findById(3941).get();
+            defaultItems.add(new PlayerInventory(savedPlayer, items2, true, false, LocalDateTime.now()));
+            Items items3 = itemsRepository.findById(3942).get();
+            defaultItems.add(new PlayerInventory(savedPlayer, items3, true, false, LocalDateTime.now()));
+            Items items4 = itemsRepository.findById(9).get();
+            defaultItems.add(new PlayerInventory(savedPlayer, items4, true, false, LocalDateTime.now()));
+        }
         
         playerInventoryRepository.saveAll(defaultItems);
         
@@ -120,13 +140,17 @@ public class PlayerServiceImpl implements PlayerService{
         playerRepository.save(player);
         Maps maps = mapRepository.findByIsDefaultTrue().orElse(null);
         
+        if (maps == null) {
+            throw new RuntimeException("Không tìm thấy bản đồ mặc định.");
+        }
+        
         PlayerPosition position = playerPositionRepository.findByPlayerId(playerId);
         if (position == null) {
             position = new PlayerPosition();
             position.setPlayer(player);
             position.setMap(maps);
-            position.setX(100);
-            position.setY(100);
+            position.setX(2);
+            position.setY(2);
             position.setDirection(Direction.DOWN);
         }
         playerPositionRepository.save(position);
@@ -135,10 +159,12 @@ public class PlayerServiceImpl implements PlayerService{
         response.setPlayerId(player.getPlayerid());
         response.setPlayerName(player.getName());
         response.setStatus(player.getStatus());
-        response.setMapId(1);
-        response.setX(100);
-        response.setY(100);
+        response.setMapId(maps.getId());
+        response.setX(2);
+        response.setY(2);
         response.setDirection(Direction.DOWN);
+        
+        gameWebSocketHandler.sendPlayerOnline(player.getPlayerid());
 
         return response;
 	}
@@ -150,6 +176,6 @@ public class PlayerServiceImpl implements PlayerService{
 
         player.setStatus("offline");
         playerRepository.save(player);
-		
+        positionCache.deletePosition(playerId);
 	}
 }

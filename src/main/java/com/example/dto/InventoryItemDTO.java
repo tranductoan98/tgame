@@ -20,11 +20,12 @@ public class InventoryItemDTO {
     private byte gender;
     private byte level;
     private String animation;
-
     private boolean visible;
     private boolean equipped;
     private EquipType equip_type;
     private LocalDateTime dateExpired;
+    private float height;
+    private float width;
 
     public InventoryItemDTO(PlayerInventory pi) {
         Items item = pi.getItems();
@@ -44,6 +45,8 @@ public class InventoryItemDTO {
         this.equipped = pi.isEquipped();
         this.equip_type = item.getEquip_type();
         this.dateExpired = pi.getDateExpired();
+        this.height = item.getHeight();
+        this.width = item.getWidth();
     }
 
 	public Integer getItemId() {
@@ -172,6 +175,22 @@ public class InventoryItemDTO {
 
 	public void setEquip_type(EquipType equip_type) {
 		this.equip_type = equip_type;
+	}
+
+	public float getHeight() {
+		return height;
+	}
+
+	public void setHeight(float height) {
+		this.height = height;
+	}
+
+	public float getWidth() {
+		return width;
+	}
+
+	public void setWidth(float width) {
+		this.width = width;
 	}
 
 }
