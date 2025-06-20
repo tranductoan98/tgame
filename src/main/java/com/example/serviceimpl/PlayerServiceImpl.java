@@ -19,7 +19,6 @@ import com.example.entity.PlayerPosition;
 import com.example.entity.User;
 import com.example.enums.Direction;
 import com.example.handler.GameWebSocketHandler;
-import com.example.position.PlayerPositionCache;
 import com.example.repository.ItemsRepository;
 import com.example.repository.MapRepository;
 import com.example.repository.PlayerInventoryRepository;
@@ -36,18 +35,16 @@ public class PlayerServiceImpl implements PlayerService{
 	private final ItemsRepository itemsRepository;
 	private final PlayerInventoryRepository playerInventoryRepository;
 	private final GameWebSocketHandler gameWebSocketHandler;
-	 private final PlayerPositionCache positionCache;
 	
 	public PlayerServiceImpl(PlayerRepository playerRepository, PlayerPositionRepository playerPositionRepository
 			, MapRepository mapRepository, ItemsRepository itemsRepository
-			, PlayerInventoryRepository playerInventoryRepository, @Lazy GameWebSocketHandler gameWebSocketHandler, PlayerPositionCache positionCache) {
+			, PlayerInventoryRepository playerInventoryRepository, @Lazy GameWebSocketHandler gameWebSocketHandler) {
 		this.playerRepository = playerRepository;
 		this.playerPositionRepository = playerPositionRepository;
 		this.mapRepository = mapRepository;
 		this.itemsRepository = itemsRepository;
 		this.playerInventoryRepository = playerInventoryRepository;
 		this.gameWebSocketHandler = gameWebSocketHandler;
-		this.positionCache = positionCache;
 	}
 
 	@Override
@@ -171,11 +168,15 @@ public class PlayerServiceImpl implements PlayerService{
 
 	@Override
 	public void logout(Integer playerId) {
-		 Player player = playerRepository.findById(playerId)
-		            .orElseThrow(() -> new RuntimeException("Player not found"));
-
+		Player player = playerRepository.findById(playerId)
+				.orElseThrow(() -> new RuntimeException("Player not found"));
+		
+		PlayerPosition position = playerPositionRepository.findByPlayerId(playerId);
+		int mapId = position.getMap().getId();
+		
         player.setStatus("offline");
         playerRepository.save(player);
-        positionCache.deletePosition(playerId);
+        
+        gameWebSocketHandler.sendPlayerOffline(playerId, mapId);
 	}
 }

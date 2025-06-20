@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.jsonwebtoken.JwtException;
 
 import java.io.IOException;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -40,7 +41,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
     private final Set<Integer> activePlayerIds = ConcurrentHashMap.newKeySet();
     private final PlayerPositionCache positionCache;
     
-    private ConcurrentHashMap<Integer, Long> sessionLastSeen = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Integer, Long> sessionLastSeen = new ConcurrentHashMap<>();
 
     public GameWebSocketHandler(PlayerPositionService playerPositionService, MapCollisionService mapService, PlayerService playerService, JwtUtil jwtUtil, WebSocketSessionHandler sessionManager, MapCollisionService mapCollisionService, PlayerPositionCache positionCache) {
         this.playerService = playerService;
@@ -98,6 +99,10 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
             PlayerSessionManager.addSession(session, playerId, mapId);
         	sessionManager.addSession(playerId, session);
+        	sessionLastSeen.put(playerId, System.currentTimeMillis());
+        	activePlayerIds.add(playerId);
+        	
+        	System.out.println("Đã thêm playerId vào sessionLastSeen: " + playerId);
 
         } catch (JwtException e) {
             session.close(CloseStatus.NOT_ACCEPTABLE.withReason("Invalid token"));
@@ -134,7 +139,17 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         Integer playerId = (Integer) session.getAttributes().get("playerId");
         Integer mapId = (Integer) session.getAttributes().get("mapId");
 
-        if (playerId != null && mapId != null) PlayerSessionManager.removeSession(session, playerId, mapId);
+        if (playerId != null && mapId != null) {
+        	PlayerSessionManager.removeSession(session, playerId, mapId);
+        	
+        	sessionLastSeen.remove(playerId);
+            activePlayerIds.remove(playerId);
+            playerService.logout(playerId);
+            positionCache.deletePosition(playerId);
+            sendPlayerOffline(playerId, mapId);
+
+            System.out.println("Player " + playerId + " ngắt kết nối thủ công");
+        }
     }
     
     @Override
@@ -154,6 +169,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
         try {
             json = mapper.readTree(payload);
         } catch (Exception e) {
+        	System.out.println("Lỗi parse JSON: " + e.getMessage());
             return;
         }
 
@@ -162,6 +178,8 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 
         if ("ping".equals(type)) {
             sessionLastSeen.put(playerId, System.currentTimeMillis());
+            
+            System.out.println("Đã thêm playerId vào sessionLastSeen: " + playerId);
             return;
         }
 
@@ -216,7 +234,7 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             Set<WebSocketSession> sessions = PlayerSessionManager.getSessionsInMap(mapId);
 
             for (WebSocketSession s : sessions) {
-                if (s.isOpen()) {
+            	if (s.isOpen() && s != session) {
                     s.sendMessage(updateText);
                 }
             }
@@ -256,17 +274,51 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
             e.printStackTrace();
         }
     }
-
     
+    public void sendPlayerOffline(int playerId, int mapId) {
+        Map<String, Object> message = Map.of(
+            "type", "player_offline",
+            "playerId", playerId
+        );
+
+        try {
+            String json = new ObjectMapper().writeValueAsString(message);
+            TextMessage textMessage = new TextMessage(json);
+
+            Set<WebSocketSession> sessions = PlayerSessionManager.getSessionsInMap(mapId);
+
+            for (WebSocketSession session : sessions) {
+                Integer sessionPlayerId = (Integer) session.getAttributes().get("playerId");
+                if (sessionPlayerId != null && sessionPlayerId == playerId) {
+                    continue;
+                }
+
+                if (session.isOpen()) {
+                    try {
+                        session.sendMessage(textMessage);
+                    } catch (IOException e) {
+                        System.err.println("Gửi message player_offline thất bại đến session " + sessionPlayerId);
+                        e.printStackTrace();
+                    }
+                }
+            }
+            cleanupPlayerSession(playerId);
+        } catch (IOException e) {
+            System.err.println("Lỗi khi serialize JSON player_offline:");
+            e.printStackTrace();
+        }
+    }
+
     @Scheduled(fixedRate = 30000)
 	public void checkInactiveSessions() {
 	    long now = System.currentTimeMillis();
-	    for (Map.Entry<Integer, Long> entry : sessionLastSeen.entrySet()) {
-	    	int playerId = entry.getKey();
+	    Iterator<Map.Entry<Integer, Long>> iterator = sessionLastSeen.entrySet().iterator();
+	    while (iterator.hasNext()) {
+	        Map.Entry<Integer, Long> entry = iterator.next();
+	        int playerId = entry.getKey();
 	        long lastSeen = entry.getValue();
-	        
-	        if (now - lastSeen > 60000) { 
-	            WebSocketSession session = sessionManager.getSession(entry.getKey());
+	        if (now - lastSeen > 60000) {
+	            WebSocketSession session = sessionManager.getSession(playerId);
 	            if (session != null && session.isOpen()) {
 	                try {
 	                    session.close();
@@ -274,14 +326,27 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 	                    e.printStackTrace();
 	                }
 	            }
-	            
-	            positionCache.deletePosition(playerId);
-	            sessionLastSeen.remove(playerId);
-	            activePlayerIds.remove(playerId);
-	            playerService.logout(playerId);
+	            iterator.remove();
+	            cleanupPlayerSession(playerId);
 	            System.out.println("Đã xóa người chơi không hoạt động: " + playerId);
 	        }
 	    }
+
 	}
+    
+    public void cleanupPlayerSession(int playerId) {
+        sessionLastSeen.remove(playerId);
+        activePlayerIds.remove(playerId);
+        positionCache.deletePosition(playerId);
+        
+        WebSocketSession session = sessionManager.getSession(playerId);
+        if (session != null && session.isOpen()) {
+            try {
+                session.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
 }
 
