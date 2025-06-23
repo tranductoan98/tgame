@@ -318,14 +318,6 @@ public class GameWebSocketHandler extends TextWebSocketHandler {
 	        int playerId = entry.getKey();
 	        long lastSeen = entry.getValue();
 	        if (now - lastSeen > 60000) {
-	            WebSocketSession session = sessionManager.getSession(playerId);
-	            if (session != null && session.isOpen()) {
-	                try {
-	                    session.close();
-	                } catch (IOException e) {
-	                    e.printStackTrace();
-	                }
-	            }
 	            iterator.remove();
 	            cleanupPlayerSession(playerId);
 	            System.out.println("Đã xóa người chơi không hoạt động: " + playerId);

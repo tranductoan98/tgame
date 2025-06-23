@@ -173,13 +173,8 @@ public class PlayerController {
 	
 	@Operation(summary = "Player logout", security = @SecurityRequirement(name = "bearerAuth"))
 	@PostMapping("/logout")
-    public ResponseEntity<?> logout(@RequestHeader("Authorization") String authHeader) {
-		if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-	        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-	    }
-		String token = authHeader.substring(7);
-	    Integer userId = jwtUtil.getUserIdFromToken(token);
-        playerService.logout(userId);
+    public ResponseEntity<?> logout(@RequestBody PlayerLoginRequest request) {
+        playerService.logout(request.getPlayerId());
         return ResponseEntity.ok("Player logged out");
     }
 }
