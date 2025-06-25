@@ -44,7 +44,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         Integer playerId = getPlayerIdFromSession(session);
         if (playerId != null) {
             sessions.put(playerId, session);
-            System.out.println("Player " + playerId + " connected via WebSocket.");
+            System.out.println("Player " + playerId + " kết nối.");
         } else {
             session.close(CloseStatus.BAD_DATA);
         }
@@ -55,7 +55,7 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         Integer playerId = getPlayerIdFromSession(session);
         if (playerId != null) {
             sessions.remove(playerId);
-            System.out.println("Player " + playerId + " disconnected.");
+            System.out.println("Player " + playerId + " ngắt kết nối.");
         }
     }
 	
@@ -65,31 +65,33 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
         Integer senderId = getPlayerIdFromSession(session);
         if (senderId == null) return;
 
-        Player sender = playerService.findByPlayerId(senderId).orElseThrow(() -> new RuntimeException("Không tìm thấy người chơi với ID: " + senderId));
-        PlayerPositionDTO playerPosition = playerPositionService.getPositionByPlayerId(senderId).orElseThrow(() -> new RuntimeException("Không tìm thấy người chơi với ID: " + senderId));
+        Player sender = playerService.findByPlayerId(senderId)
+        		.orElseThrow(() -> new RuntimeException("Không tìm thấy người chơi với ID: " + senderId));
+        PlayerPositionDTO playerPosition = playerPositionService.getPositionByPlayerId(senderId)
+        		.orElseThrow(() -> new RuntimeException("Không tìm thấy người chơi với ID: " + senderId));
+        Maps maps = mapService.getMapById(playerPosition.getMapId())
+        		.orElseThrow(() -> new RuntimeException("Không tìm thấy Map với ID: " + playerPosition.getMapId()));
+        
         ChatLog chat = new ChatLog();
         chat.setSender(sender);
         chat.setMessage(incoming.getMessage());
         chat.setChannel(incoming.getChannel());
         chat.setSentat(LocalDateTime.now());
-        
-        Maps maps = mapService.getMapById(playerPosition.getMapId()).orElseThrow(() -> new RuntimeException("Không tìm thấy Map với ID: " + playerPosition.getMapId()));
 
         switch (incoming.getChannel()) {
             case MAP -> {
                 chat.setMap(maps);
-                chatLogService.sendMessage(chat);
-                broadcastToMap(playerPosition.getMapId(), chat);
+                broadcastToMap(playerPosition.getMapId(), chat, senderId);
             }
             case PRIVATE -> {
-                Player receiver = playerService.findByPlayerId(incoming.getReceiverId()).orElseThrow(() -> new RuntimeException("Không tìm thấy người chơi với ID: " + incoming.getReceiverId()));
+                Player receiver = playerService.findByPlayerId(incoming.getReceiverId())
+                		.orElseThrow(() -> new RuntimeException("Không tìm thấy người chơi với ID: " + incoming.getReceiverId()));
                 chat.setReceiver(receiver);
                 chatLogService.sendMessage(chat);
                 sendToPrivateUsers(senderId, incoming.getReceiverId(), chat);
             }
             case GLOBAL -> {
-                chatLogService.sendMessage(chat);
-                broadcastToAll(chat);
+                broadcastToAll(chat, senderId);
             }
         }
     }
@@ -111,20 +113,26 @@ public class ChatWebSocketHandler extends TextWebSocketHandler {
 	    return null;
     }
 	
-	private void broadcastToMap(int mapId, ChatLog chat) throws Exception {
-        for (Map.Entry<Integer, WebSocketSession> entry : sessions.entrySet()) {
-        	PlayerPositionDTO playerPosition = (PlayerPositionDTO) playerPositionService.getPositionByPlayerId(entry.getKey()).orElseThrow(() -> new RuntimeException("Không tìm thấy người chơi với ID: " + entry.getKey()));
-            if (playerPosition.getMapId() == mapId) {
-                send(entry.getValue(), chat);
-            }
-        }
-    }
+	private void broadcastToMap(int mapId, ChatLog chat, int senderId) throws Exception {
+	    for (Map.Entry<Integer, WebSocketSession> entry : sessions.entrySet()) {
+	        int playerId = entry.getKey();
+	        if (playerId == senderId) continue;
+
+	        PlayerPositionDTO position = playerPositionService.getPositionByPlayerId(playerId)
+	            .orElse(null);
+	        if (position != null && position.getMapId() == mapId) {
+	            send(entry.getValue(), chat);
+	        }
+	    }
+	}
 	
-	private void broadcastToAll(ChatLog chat) throws Exception {
-        for (WebSocketSession session : sessions.values()) {
-            send(session, chat);
-        }
-    }
+	private void broadcastToAll(ChatLog chat, int senderId) throws Exception {
+	    for (Map.Entry<Integer, WebSocketSession> entry : sessions.entrySet()) {
+	        if (entry.getKey() != senderId) {
+	            send(entry.getValue(), chat);
+	        }
+	    }
+	}
 	
 	private void send(WebSocketSession session, ChatLog chat) throws Exception {
         if (session != null && session.isOpen()) {
